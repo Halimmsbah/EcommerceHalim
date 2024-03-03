@@ -75,12 +75,32 @@ const createCheckOutSession = catchAsyncError(async (req, res, next) => {
     res.json({ message: 'success', session })
 });
 
+const createOnlineOrder = catchAsyncError((request, response) => {
+    const sig = request.headers['stripe-signature'].toString();
+
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(request.body, sig, "whsec_0P2DA0HyiDNzxPBE83zoJSPTCPpZl6TG");
+    } catch (err) {
+        return response.status(400).send(`Webhook Error: ${err.message}`);
+    }
+    // Handle the event
+    if(event.type === 'checkout.session.completed'){
+        const checkoutSessionCompleted = event.data.object;
+        console.log(checkoutSessionCompleted)
+    } else {
+        console.log(`Unhandled event type ${event.type}`);
+    }
+});
+
 
 export {
     createCashOrder,
     getSpecififcOrder,
     getAllOrders,
-    createCheckOutSession
+    createCheckOutSession,
+    createOnlineOrder
 }
 
 //bulk -> to increment sold & decrement quantity
