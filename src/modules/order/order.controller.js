@@ -94,7 +94,7 @@ const createOnlineOrder = catchAsyncError((request, response) => {
     }
 });
 
-async function card(e) {
+async function card(e,res) {
 
     //1- get cart -> cartId
     let cart = await cartModel.findById(e.client_reference_id)
