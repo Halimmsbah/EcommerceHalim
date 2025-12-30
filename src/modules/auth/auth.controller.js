@@ -8,8 +8,7 @@ import { AppError } from '../../utils/AppError.js'
 export const signup = async (req, res) => {
 	let user = new userModel(req.body)
 	await user.save()
-	let token = jwt.sign({ userId:user._id , role:user.role }, process.env.JWT_KEY)
-	res.json({ message: 'Signed up successfully',token })
+	res.json({ message: 'Signed up successfully' })
 }
 
 export const signin = catchAsyncError(async (req, res,next) => {
@@ -20,7 +19,6 @@ export const signin = catchAsyncError(async (req, res,next) => {
 	}
 	next(new AppError('Invalid credentials', 408))
 })
-
 
 export const protectedRoutes = catchAsyncError(async (req, res,next) => {
 	let{token}=req.headers
@@ -41,10 +39,15 @@ export const protectedRoutes = catchAsyncError(async (req, res,next) => {
 		console.log( time + '|' + decoded.iat)
 		if(time>decoded.iat) return next(new AppError('invaild token...login again',404))
 	}
-
 	req.user=user
-
 	next()
+})
+
+export const IsAdmin = catchAsyncError(async (req, res,next) => {
+		if(req.user && req.user.role === 'admin')
+		next()
+		else
+		next(new AppError('you are not authorized as admin', 401	))
 })
 
 export const changePassword = catchAsyncError(async (req, res,next) => {
@@ -56,7 +59,7 @@ export const changePassword = catchAsyncError(async (req, res,next) => {
 	}
 	next(new AppError('Invalid credentials', 408	))
 })
-
+	
 export const allowedTo =(...roles)=>{
 	return catchAsyncError(async (req, res,next) => {
 		if(!roles.includes(req.user.role))

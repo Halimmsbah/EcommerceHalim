@@ -6,9 +6,9 @@ export const addProductVal= Joi.object({
     price: Joi.number().min(1).required(),
     priceAfterDiscount: Joi.number().min(0).optional(),
     quantity: Joi.number().min(0).optional(),
-    category:Joi.string().hex().length(24).required(),
-    subCategory:Joi.string().hex().length(24).required(),
-    brand:Joi.string().hex().length(24).required(),
+    category:Joi.string().hex().length(24),
+    subCategory:Joi.string().hex().length(24),
+    brand:Joi.string().hex().length(24),
     createdBy:Joi.string().hex().length(24).optional(),
 
     imgCover:Joi.array().items(Joi.object({

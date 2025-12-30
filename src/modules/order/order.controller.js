@@ -4,6 +4,7 @@ import { AppError } from "../../utils/AppError.js"
 import { orderModel } from "../../../database/models/order.model.js"
 import { productModel } from "../../../database/models/product.model.js"
 import Stripe from 'stripe';
+import { createInvoice } from "../../utils/pdf.js"
 const stripe = new Stripe('sk_test_51OpCIzCHnLlVXMX9ney1XAm4kXmyHJKZaWiCwH7g5Ki3b8l4s6yW5ZRmzFL0q9I9VIIhjO5DvXVZJDKoQkhnEoTO00ltu0ooZC');
 
 
@@ -32,6 +33,36 @@ const createCashOrder = catchAsyncError(async (req, res, next) => {
         }
     })
     await productModel.bulkWrite(options)
+
+    //pdf invoice
+
+    const invoice = {
+        shipping: {
+            name: req.user.name,
+            address: req.body.shippingAddress,
+            city: req.body.city,
+        },
+        items: [
+            {
+                item: "TC 100",
+                description: "Toner Cartridge",
+                quantity: 2,
+                amount: 6000
+            },
+            {
+                item: "USB_EXT",
+                description: "USB Cable Extender",
+                quantity: 1,
+                amount: 2000
+            }
+        ],
+        subtotal: 8000,
+        paid: 0,
+        invoice_nr: 1234
+    };
+
+    createInvoice(invoice, "invoice.pdf");
+
     //5- clear cart 
     await cartModel.findByIdAndDelete(req.params.id)
 
@@ -75,7 +106,7 @@ const createCheckOutSession = catchAsyncError(async (req, res, next) => {
     res.json({ message: 'success', session })
 });
 
-const createOnlineOrder = catchAsyncError((request, response) => {
+const createOnlineOrder = ((request, response) => {
     const sig = request.headers['stripe-signature'].toString();
 
     let event;
@@ -132,12 +163,94 @@ async function card(e) {
     return next(new AppError('order not found', 404))
 }
 
+// Update order delivery status (Admin only)
+const updateOrderDeliveryStatus = catchAsyncError(async (req, res, next) => {
+    const { orderId } = req.params
+    const { isDelivered } = req.body
+
+    const order = await orderModel.findByIdAndUpdate(
+        orderId,
+        {
+            isDelivered,
+            deliveredAt: isDelivered ? Date.now() : null
+        },
+        { new: true }
+    ).populate('orderItems.product')
+
+    if (!order) return next(new AppError('Order not found', 404))
+
+    res.json({ message: 'success', order })
+})
+
+// Update order payment status (Admin only)
+const updateOrderPaymentStatus = catchAsyncError(async (req, res, next) => {
+    const { orderId } = req.params
+    const { isPaid } = req.body
+
+    const order = await orderModel.findByIdAndUpdate(
+        orderId,
+        {
+            isPaid,
+            paidAt: isPaid ? Date.now() : null
+        },
+        { new: true }
+    ).populate('orderItems.product')
+
+    if (!order) return next(new AppError('Order not found', 404))
+
+    res.json({ message: 'success', order })
+})
+
+// Get orders with filters (Admin only)
+const getOrdersWithFilters = catchAsyncError(async (req, res, next) => {
+    const { status, paymentStatus, startDate, endDate, userId } = req.query
+    
+    let filter = {}
+    
+    if (status === 'delivered') filter.isDelivered = true
+    if (status === 'pending') filter.isDelivered = false
+    if (paymentStatus === 'paid') filter.isPaid = true
+    if (paymentStatus === 'unpaid') filter.isPaid = false
+    if (userId) filter.user = userId
+    
+    if (startDate || endDate) {
+        filter.createdAt = {}
+        if (startDate) filter.createdAt.$gte = new Date(startDate)
+        if (endDate) filter.createdAt.$lte = new Date(endDate)
+    }
+
+    const orders = await orderModel.find(filter)
+        .populate('user', 'name email')
+        .populate('orderItems.product', 'title price imgCover')
+        .sort({ createdAt: -1 })
+
+    res.json({ 
+        message: 'success', 
+        count: orders.length,
+        orders 
+    })
+})
+
+// Delete order (Admin only)
+const deleteOrder = catchAsyncError(async (req, res, next) => {
+    const { orderId } = req.params
+    
+    const order = await orderModel.findByIdAndDelete(orderId)
+    if (!order) return next(new AppError('Order not found', 404))
+
+    res.json({ message: 'Order deleted successfully', order })
+})
+
 export {
     createCashOrder,
     getSpecififcOrder,
     getAllOrders,
     createCheckOutSession,
-    createOnlineOrder
+    createOnlineOrder,
+    updateOrderDeliveryStatus,
+    updateOrderPaymentStatus,
+    getOrdersWithFilters,
+    deleteOrder
 }
 
 //bulk -> to increment sold & decrement quantity
