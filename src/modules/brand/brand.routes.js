@@ -1,7 +1,7 @@
 import { validation } from "../../middleware/validation.js";
 import { addBrand, deleteBrand, getAllBrand, getSingleBrand, updateBrand } from "./brand.controller.js";
 import express from 'express'
-import { addBrandVal, paramsIdVal, updateBrandVal } from "./Brand.validation.js";
+import { addBrandVal, paramsIdVal, updateBrandVal } from "./brand.validation.js";
 import { uploadSingleFile } from "../../services/fileUpload/fileUpload.js";
 import { protectedRoutes } from "../auth/auth.controller.js";
 
